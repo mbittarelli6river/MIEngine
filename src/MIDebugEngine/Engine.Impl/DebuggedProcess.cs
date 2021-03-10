@@ -612,6 +612,7 @@ namespace Microsoft.MIDebugEngine
 
         private async Task<List<LaunchCommand>> GetInitializeCommands()
         {
+            Logger.WriteLine("DEBUG: DebuggedProcess::GetInitializeCommands");
             List<LaunchCommand> commands = new List<LaunchCommand>();
 
             commands.AddRange(_launchOptions.SetupCommands);
@@ -820,7 +821,12 @@ namespace Microsoft.MIDebugEngine
                     if (null != localLaunchOptions)
                     {
                         string destination = localLaunchOptions.MIDebuggerServerAddress;
-                        if (!string.IsNullOrWhiteSpace(destination))
+                        if(localLaunchOptions?.ExtendedRemote != null) {
+                            Logger.EnsureInitialized(null).WriteLine("DEBUG: running target-select extended-remote " + destination);
+                            commands.Add(new LaunchCommand("-target-select extended-remote " + destination, string.Format(CultureInfo.CurrentCulture, ResourceStrings.ConnectingMessage, destination)));
+                            commands.Add(new LaunchCommand("-target-attach " + localLaunchOptions?.ExtendedRemote.Pid.ToString(CultureInfo.InvariantCulture)));
+                        }
+                        else if (!string.IsNullOrWhiteSpace(destination))
                         {
                             commands.Add(new LaunchCommand("-target-select remote " + destination, string.Format(CultureInfo.CurrentCulture, ResourceStrings.ConnectingMessage, destination)));
                         }

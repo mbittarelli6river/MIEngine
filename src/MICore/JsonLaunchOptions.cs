@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Microsoft.DebugEngineHost;
 
 namespace MICore.Json.LaunchOptions
 {
@@ -210,6 +211,41 @@ namespace MICore.Json.LaunchOptions
         #endregion
     }
 
+    public class ExtendedRemote
+    {
+        #region Public Properties for Serialization
+
+        [JsonProperty("pid", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        private int? _pid;
+        public int? Pid { 
+            get {
+                Logger.EnsureInitialized(null).WriteLine("DEBUG: ExtendedRemote get pid");
+                return this._pid;
+            }
+            set {
+                Logger.EnsureInitialized(null).WriteLine("DEBUG: ExtendedRemote set pid");
+                this._pid = value;
+            }
+        }
+
+        #endregion
+
+        #region Constructors
+
+        public ExtendedRemote()
+        {
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: ExtendedRemote default constructor");
+        }
+
+        public ExtendedRemote(int? pid = 0)
+        {
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: ExtendedRemote complex constructor");
+            this.Pid = pid;
+        }
+
+        #endregion
+    }
+
     public partial class LaunchOptions : BaseOptions
     {
         #region Public Properties for Serialization
@@ -305,17 +341,23 @@ namespace MICore.Json.LaunchOptions
         [JsonProperty("avoidWindowsConsoleRedirection", DefaultValueHandling = DefaultValueHandling.Ignore)]
         public bool? AvoidWindowsConsoleRedirection { get; set; }
 
+        [JsonProperty("extendedRemote", DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public ExtendedRemote ExtendedRemote { get; set; }
+
         #endregion
 
         #region Constructors
 
         public LaunchOptions()
         {
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: default LaunchOptions constructor start");
             this.Args = new List<string>();
             this.SetupCommands = new List<SetupCommand>();
             this.CustomLaunchSetupCommands = new List<SetupCommand>();
             this.Environment = new List<Environment>();
             this.SourceFileMap = new Dictionary<string, object>();
+            this.ExtendedRemote = new ExtendedRemote();
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: default LaunchOptions constructor end");
         }
 
         public LaunchOptions(
@@ -345,8 +387,10 @@ namespace MICore.Json.LaunchOptions
             string coreDumpPath = null,
             bool? externalConsole = null,
             Dictionary<string, object> sourceFileMap = null,
-            PipeTransport pipeTransport = null)
+            PipeTransport pipeTransport = null,
+            ExtendedRemote extendedRemote = null)
         {
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: complex LaunchOptions constructor");
             this.Program = program;
             this.Args = args;
             this.Type = type;
@@ -374,6 +418,7 @@ namespace MICore.Json.LaunchOptions
             this.ExternalConsole = externalConsole;
             this.SourceFileMap = sourceFileMap;
             this.PipeTransport = pipeTransport;
+            this.ExtendedRemote = extendedRemote;
         }
 
         #endregion
@@ -627,7 +672,15 @@ namespace MICore.Json.LaunchOptions
             {
                 case "launch":
                     // handle launch case
-                    baseOptions = parsedJObject.ToObject<Json.LaunchOptions.LaunchOptions>();
+                    Logger.EnsureInitialized(null).WriteLine("DEBUG: parse launch options start");
+                    try {
+                        baseOptions = parsedJObject.ToObject<Json.LaunchOptions.LaunchOptions>();
+                    }
+                    catch(Exception ex) {
+                        Logger.EnsureInitialized(null).WriteLine("DEBUG: caught exception: " + ex.ToString());
+                        // throw ex;
+                    }
+                    Logger.EnsureInitialized(null).WriteLine("DEBUG: parse launch options end");
                     break;
                 case "attach":
                     // handle attach case

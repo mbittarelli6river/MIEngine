@@ -520,6 +520,7 @@ namespace MICore
         static internal LocalLaunchOptions CreateFromJson(JObject parsedOptions)
         {
             Json.LaunchOptions.BaseOptions launchOptions = Json.LaunchOptions.LaunchOptionHelpers.GetLaunchOrAttachOptions(parsedOptions);
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: CreateFromJson got launch or attach options");
 
             if (launchOptions == null)
             {
@@ -538,10 +539,14 @@ namespace MICore
             localLaunchOptions.InitializeCommonOptions(launchOptions);
             if (launchOptions is Json.LaunchOptions.LaunchOptions)
             {
+                Logger.EnsureInitialized(null).WriteLine("DEBUG: cast launch options");
                 Json.LaunchOptions.LaunchOptions launch = (Json.LaunchOptions.LaunchOptions)launchOptions;
+                Logger.EnsureInitialized(null).WriteLine("DEBUG: CreateFromJson initialize launch options");
                 localLaunchOptions.InitializeLaunchOptions(launch);
+                Logger.EnsureInitialized(null).WriteLine("DEBUG: CreateFromJson initialize server options");
                 localLaunchOptions.InitializeServerOptions(launch);
                 localLaunchOptions._useExternalConsole = launch.ExternalConsole.GetValueOrDefault(false);
+                Logger.EnsureInitialized(null).WriteLine("DEBUG: CreateFromJson finished launch options");
             }
 
             if (launchOptions is Json.LaunchOptions.AttachOptions)
@@ -790,6 +795,7 @@ namespace MICore
         private static Lazy<Assembly> s_serializationAssembly = new Lazy<Assembly>(LoadSerializationAssembly, LazyThreadSafetyMode.ExecutionAndPublication);
         private bool _initializationComplete;
         private MIMode _miMode;
+        private ExtendedRemote _extendedRemote;
 
         /// <summary>
         /// [Optional] Launcher used to start the application on the device
@@ -804,6 +810,12 @@ namespace MICore
                 VerifyCanModifyProperty(nameof(DebuggerMIMode));
                 _miMode = value;
             }
+        }
+
+        public ExtendedRemote ExtendedRemote
+        {
+            get { return _extendedRemote; }
+            set { this._extendedRemote = value; }
         }
 
         public bool NoDebug { get; private set; } = false;
@@ -1162,6 +1174,8 @@ namespace MICore
 
         public static LaunchOptions GetInstance(HostConfigurationStore configStore, string exePath, string args, string dir, string options, bool noDebug, IDeviceAppLauncherEventCallback eventCallback, TargetEngine targetEngine, Logger logger)
         {
+            logger.WriteLine("DEBUG: options json: " + options);
+
             if (string.IsNullOrWhiteSpace(exePath))
                 throw new ArgumentNullException(nameof(exePath));
 
@@ -1182,6 +1196,7 @@ namespace MICore
                 {
                     JObject parsedOptions = JObject.Parse(options);
 
+                    logger.WriteLine("DEBUG: parse json 1");
                     // if the customLauncher element is present then try using the custom launcher implementation from the config store
                     if (parsedOptions["customLauncher"] != null && !string.IsNullOrWhiteSpace(parsedOptions["customLauncher"].Value<string>()))
                     {
@@ -1195,16 +1210,22 @@ namespace MICore
                         {
                             throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, MICoreResources.Error_LauncherNotFound, customLauncherName));
                         }
+                        logger.WriteLine("DEBUG: parse json 2");
                         launchOptions = ExecuteLauncher(configStore, (IPlatformAppLauncher)jsonLauncher, exePath, args, dir, parsedOptions, eventCallback, targetEngine, logger);
                     }
                     else if (parsedOptions["pipeTransport"] != null && parsedOptions["pipeTransport"].HasValues)
                     {
+                        logger.WriteLine("DEBUG: parse json 3");
                         launchOptions = PipeLaunchOptions.CreateFromJson(parsedOptions);
                     }
                     else
                     {
+                        logger.WriteLine("DEBUG: parse json 4");
                         launchOptions = LocalLaunchOptions.CreateFromJson(parsedOptions);
                     }
+
+                    logger.WriteLine("DEBUG: try access pid...");
+                    logger.WriteLine("DEBUG: extended remote pid: " + launchOptions.ExtendedRemote.Pid);
                 }
                 catch (JsonReaderException e)
                 {
@@ -1339,6 +1360,7 @@ namespace MICore
             launchOptions.LoadSupplementalOptions(logger);
 
             launchOptions.SetInitializationComplete();
+            logger.WriteLine("DEBUG: extended remote pid: " + launchOptions.ExtendedRemote.Pid);
             return launchOptions;
         }
 
@@ -1905,6 +1927,17 @@ namespace MICore
             }
 
             this.Environment = new ReadOnlyCollection<EnvironmentEntry>(GetEnvironmentEntries(launch.Environment));
+            
+
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: extended remote?");
+            Logger.EnsureInitialized(null).WriteLine("DEBUG: extended remote pid: " + launch.ExtendedRemote.Pid);
+
+            this.ExtendedRemote = new ExtendedRemote();
+            if( launch.ExtendedRemote != null && 
+                launch.ExtendedRemote.Pid != null) {
+            
+                this.ExtendedRemote.Pid = (int)launch.ExtendedRemote.Pid;
+            }
         }
 
         public void InitializeAttachOptions(Json.LaunchOptions.AttachOptions attach)
